@@ -7,7 +7,6 @@ import random
 import time
 import torch
 from os import path as osp
-
 from basicsr.data import build_dataloader, build_dataset
 from basicsr.data.data_sampler import EnlargedSampler
 from basicsr.data.prefetch_dataloader import CPUPrefetcher, CUDAPrefetcher
@@ -16,10 +15,11 @@ from basicsr.utils import (MessageLogger, check_resume, get_env_info, get_root_l
                            init_wandb_logger, make_exp_dirs, mkdir_and_rename, set_random_seed)
 from basicsr.utils.dist_util import get_dist_info, init_dist
 from basicsr.utils.options import dict2str, parse
-
 import warnings
+
 # ignore UserWarning: Detected call of `lr_scheduler.step()` before `optimizer.step()`.
 warnings.filterwarnings("ignore", category=UserWarning)
+
 
 def parse_options(root_path, is_train=True):
     parser = argparse.ArgumentParser()
@@ -130,7 +130,7 @@ def train_pipeline(root_path):
 
     # initialize loggers
     logger, tb_logger = init_loggers(opt)
-    
+
     # create train and validation dataloaders
     result = create_train_val_dataloader(opt, logger)
     train_loader, train_sampler, val_loader, total_epochs, total_iters = result
@@ -164,7 +164,7 @@ def train_pipeline(root_path):
         raise ValueError(f'Wrong prefetch_mode {prefetch_mode}.' "Supported ones are: None, 'cuda', 'cpu'.")
 
     # training
-    logger.info(f'Start training from epoch: {start_epoch}, iter: {current_iter+1}')
+    logger.info(f'Start training from epoch: {start_epoch}, iter: {current_iter + 1}')
     data_time, iter_time = time.time(), time.time()
     start_time = time.time()
 
@@ -200,7 +200,7 @@ def train_pipeline(root_path):
 
             # validation
             if opt.get('val') is not None and opt['datasets'].get('val') is not None \
-                and (current_iter % opt['val']['val_freq'] == 0):
+                    and (current_iter % opt['val']['val_freq'] == 0):
                 model.validation(val_loader, current_iter, tb_logger, opt['val']['save_img'])
 
             data_time = time.time()

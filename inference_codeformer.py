@@ -9,7 +9,6 @@ from basicsr.utils import imwrite, img2tensor, tensor2img
 from basicsr.utils.download_util import load_file_from_url
 from facelib.utils.face_restoration_helper import FaceRestoreHelper
 import torch.nn.functional as F
-
 from basicsr.utils.registry import ARCH_REGISTRY
 
 pretrain_model_url = {
@@ -17,6 +16,7 @@ pretrain_model_url = {
 }
 
 if __name__ == '__main__':
+    print('start inference')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     parser = argparse.ArgumentParser()
 
@@ -45,6 +45,7 @@ if __name__ == '__main__':
     if args.bg_upsampler == 'realesrgan':
         if not torch.cuda.is_available():  # CPU
             import warnings
+
             warnings.warn('The unoptimized RealESRGAN is slow on CPU. We do not use it. '
                           'If you really want to use it, please modify the corresponding codes.',
                           category=RuntimeWarning)
@@ -52,6 +53,7 @@ if __name__ == '__main__':
         else:
             from basicsr.archs.rrdbnet_arch import RRDBNet
             from basicsr.utils.realesrgan_utils import RealESRGANer
+
             model = RRDBNet(num_in_ch=3, num_out_ch=3, num_feat=64, num_block=23, num_grow_ch=32, scale=2)
             bg_upsampler = RealESRGANer(
                 scale=2,
@@ -65,12 +67,12 @@ if __name__ == '__main__':
         bg_upsampler = None
 
     # ------------------ set up CodeFormer restorer -------------------
-    net = ARCH_REGISTRY.get('CodeFormer')(dim_embd=512, codebook_size=1024, n_head=8, n_layers=9, 
-                                            connect_list=['32', '64', '128', '256']).to(device)
-    
+    net = ARCH_REGISTRY.get('CodeFormer')(dim_embd=512, codebook_size=1024, n_head=8, n_layers=9,
+                                          connect_list=['32', '64', '128', '256']).to(device)
+
     # ckpt_path = 'weights/CodeFormer/codeformer.pth'
-    ckpt_path = load_file_from_url(url=pretrain_model_url['restoration'], 
-                                    model_dir='weights/CodeFormer', progress=True, file_name=None)
+    ckpt_path = load_file_from_url(url=pretrain_model_url['restoration'],
+                                   model_dir='weights/CodeFormer', progress=True, file_name=None)
     checkpoint = torch.load(ckpt_path)['params_ema']
     net.load_state_dict(checkpoint)
     net.eval()
@@ -78,13 +80,13 @@ if __name__ == '__main__':
     # ------------------ set up FaceRestoreHelper -------------------
     # large det_model: 'YOLOv5l', 'retinaface_resnet50'
     # small det_model: 'YOLOv5n', 'retinaface_mobile0.25'
-    if not args.has_aligned: 
+    if not args.has_aligned:
         print(f'Using [{args.detection_model}] for face detection network.')
     face_helper = FaceRestoreHelper(
         args.upscale,
         face_size=512,
         crop_ratio=(1, 1),
-        det_model = args.detection_model,
+        det_model=args.detection_model,
         save_ext='png',
         use_parse=True,
         device=device)
@@ -94,13 +96,13 @@ if __name__ == '__main__':
     for img_path in sorted(glob.glob(os.path.join(args.test_path, '*.[jp][pn]g'))):
         # clean all the intermediate results to process the next image
         face_helper.clean_all()
-        
+
         img_name = os.path.basename(img_path)
         print(f'Processing: {img_name}')
         basename, ext = os.path.splitext(img_name)
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
-        if args.has_aligned: 
+        if args.has_aligned:
             # the input faces are already cropped and aligned
             img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_LINEAR)
             face_helper.cropped_faces = [img]
@@ -148,7 +150,7 @@ if __name__ == '__main__':
         # save faces
         for idx, (cropped_face, restored_face) in enumerate(zip(face_helper.cropped_faces, face_helper.restored_faces)):
             # save cropped face
-            if not args.has_aligned: 
+            if not args.has_aligned:
                 save_crop_path = os.path.join(result_root, 'cropped_faces', f'{basename}_{idx:02d}.png')
                 imwrite(cropped_face, save_crop_path)
             # save restored face

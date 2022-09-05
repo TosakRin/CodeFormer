@@ -10,7 +10,6 @@ from facelib.utils.misc import img2tensor, imwrite
 
 
 def get_largest_face(det_faces, h, w):
-
     def get_location(val, length):
         if val < 0:
             return 0
@@ -77,7 +76,6 @@ class FaceRestoreHelper(object):
             # self.face_template = np.array([[193.65928, 242.98541], [318.32558, 243.06108], [255.67984, 328.82894],
             #                                 [198.22603, 372.82502], [313.91018, 372.75659]])
 
-
         self.face_template = self.face_template * (face_size / 512.0)
         if self.crop_ratio[0] > 1:
             self.face_template[:, 1] += face_size * (self.crop_ratio[0] - 1) / 2
@@ -126,9 +124,9 @@ class FaceRestoreHelper(object):
 
         self.input_img = img
 
-        if min(self.input_img.shape[:2])<512:
-            f = 512.0/min(self.input_img.shape[:2])
-            self.input_img = cv2.resize(self.input_img, (0,0), fx=f, fy=f, interpolation=cv2.INTER_LINEAR)
+        if min(self.input_img.shape[:2]) < 512:
+            f = 512.0 / min(self.input_img.shape[:2])
+            self.input_img = cv2.resize(self.input_img, (0, 0), fx=f, fy=f, interpolation=cv2.INTER_LINEAR)
 
     def get_face_landmarks_5(self,
                              only_keep_largest=False,
@@ -142,7 +140,7 @@ class FaceRestoreHelper(object):
         else:
             h, w = self.input_img.shape[0:2]
             scale = resize / min(h, w)
-            scale = max(1, scale) # always scale up
+            scale = max(1, scale)  # always scale up
             h, w = int(h * scale), int(w * scale)
             interp = cv2.INTER_AREA if scale < 1 else cv2.INTER_LINEAR
             input_img = cv2.resize(self.input_img, (w, h), interpolation=interp)
@@ -167,7 +165,7 @@ class FaceRestoreHelper(object):
                 landmark = np.array([[bbox[i], bbox[i + 1]] for i in range(5, 15, 2)])
             self.all_landmarks_5.append(landmark)
             self.det_faces.append(bbox[0:5])
-            
+
         if len(self.det_faces) == 0:
             return 0
         if only_keep_largest:
@@ -310,7 +308,7 @@ class FaceRestoreHelper(object):
 
         assert len(self.restored_faces) == len(
             self.inverse_affine_matrices), ('length of restored_faces and affine_matrices are different.')
-        
+
         inv_mask_borders = []
         for restored_face, inverse_affine in zip(self.restored_faces, self.inverse_affine_matrices):
             # Add an offset to inverse affine matrix, for more precise back alignment
@@ -360,12 +358,12 @@ class FaceRestoreHelper(object):
             if draw_box:
                 h, w = self.face_size
                 mask_border = np.ones((h, w, 3), dtype=np.float32)
-                border = int(1400/np.sqrt(total_face_area))
-                mask_border[border:h-border, border:w-border,:] = 0
+                border = int(1400 / np.sqrt(total_face_area))
+                mask_border[border:h - border, border:w - border, :] = 0
                 inv_mask_border = cv2.warpAffine(mask_border, inverse_affine, (w_up, h_up))
                 inv_mask_borders.append(inv_mask_border)
             # compute the fusion edge based on the area of face
-            w_edge = int(total_face_area**0.5) // 20
+            w_edge = int(total_face_area ** 0.5) // 20
             erosion_radius = w_edge * 2
             inv_mask_center = cv2.erode(inv_mask_erosion, np.ones((erosion_radius, erosion_radius), np.uint8))
             blur_size = w_edge * 2
@@ -404,8 +402,8 @@ class FaceRestoreHelper(object):
                 parse_mask = cv2.warpAffine(parse_mask, inverse_affine, (w_up, h_up), flags=3)
                 inv_soft_parse_mask = parse_mask[:, :, None]
                 # pasted_face = inv_restored
-                fuse_mask = (inv_soft_parse_mask<inv_soft_mask).astype('int')
-                inv_soft_mask = inv_soft_parse_mask*fuse_mask + inv_soft_mask*(1-fuse_mask)
+                fuse_mask = (inv_soft_parse_mask < inv_soft_mask).astype('int')
+                inv_soft_mask = inv_soft_parse_mask * fuse_mask + inv_soft_mask * (1 - fuse_mask)
 
             if len(upsample_img.shape) == 3 and upsample_img.shape[2] == 4:  # alpha channel
                 alpha = upsample_img[:, :, 3:]
@@ -423,9 +421,9 @@ class FaceRestoreHelper(object):
         if draw_box:
             # upsample_input_img = cv2.resize(input_img, (w_up, h_up))
             img_color = np.ones([*upsample_img.shape], dtype=np.float32)
-            img_color[:,:,0] = 0
-            img_color[:,:,1] = 255
-            img_color[:,:,2] = 0
+            img_color[:, :, 0] = 0
+            img_color[:, :, 1] = 255
+            img_color[:, :, 2] = 0
             for inv_mask_border in inv_mask_borders:
                 upsample_img = inv_mask_border * img_color + (1 - inv_mask_border) * upsample_img
                 # upsample_input_img = inv_mask_border * img_color + (1 - inv_mask_border) * upsample_input_img
