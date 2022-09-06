@@ -10,6 +10,7 @@ from facelib.utils.misc import img2tensor, imwrite
 
 
 def get_largest_face(det_faces, h, w):
+    """Get the largest face in the image"""
     def get_location(val, length):
         if val < 0:
             return 0
@@ -57,6 +58,18 @@ class FaceRestoreHelper(object):
                  pad_blur=False,
                  use_parse=False,
                  device=None):
+        """
+        Args:
+            upscale_factor: Upscale factor for the face restoration.
+            face_size: Size of the cropped face.
+            crop_ratio: Ratio of the cropped face.
+            det_model: Face detection model.
+            save_ext: Extension of the saved cropped face.
+            template_3points: Use 3 points to get affine matrix.
+            pad_blur: Pad the input image and blur the padded area.
+            use_parse: Use parsing model to get the face mask.
+            device: Device for the face restoration.
+        """
         self.template_3points = template_3points  # improve robustness
         self.upscale_factor = upscale_factor
         # the cropped face ratio based on the square face
@@ -134,6 +147,17 @@ class FaceRestoreHelper(object):
                              resize=None,
                              blur_ratio=0.01,
                              eye_dist_threshold=None):
+        """
+        Get face landmarks for all detected faces.
+        Args:
+            only_keep_largest (bool): only keep the largest face.
+            only_center_face (bool): only keep the face in the center of the image.
+            resize (tuple): resize the input image before face detection.
+            blur_ratio (float): blur the input image before face detection.
+            eye_dist_threshold (float): threshold for the eye distance.
+        Returns:
+            all_landmarks_5 (list): list of 5 landmarks for each detected face.
+        """
         if resize is None:
             scale = 1
             input_img = self.input_img
@@ -296,6 +320,13 @@ class FaceRestoreHelper(object):
         self.restored_faces.append(face)
 
     def paste_faces_to_input_image(self, save_path=None, upsample_img=None, draw_box=False):
+        """
+        Paste faces to input image.
+        Args:
+            save_path (str): Path to save the pasted image.
+            upsample_img (ndarray): Upsampled image.
+            draw_box (bool): Whether to draw box on the pasted image.
+        """
         h, w, _ = self.input_img.shape
         h_up, w_up = int(h * self.upscale_factor), int(w * self.upscale_factor)
 

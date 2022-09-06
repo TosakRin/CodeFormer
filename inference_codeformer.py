@@ -16,7 +16,7 @@ pretrain_model_url = {
 }
 
 if __name__ == '__main__':
-    print('start inference')
+    print('start inference ...')
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     parser = argparse.ArgumentParser()
 
@@ -39,9 +39,10 @@ if __name__ == '__main__':
         args.test_path = args.test_path[:-1]
 
     w = args.w
-    result_root = f'results/{os.path.basename(args.test_path)}_{w}'
+    result_root = f'results/{os.path.basename(args.test_path)}_{w}'  # make result dir
 
     # ------------------ set up background upsampler ------------------
+    # background upsampler is used for super resolution(FHD2UHD) the whole image
     if args.bg_upsampler == 'realesrgan':
         if not torch.cuda.is_available():  # CPU
             import warnings
@@ -50,7 +51,7 @@ if __name__ == '__main__':
                           'If you really want to use it, please modify the corresponding codes.',
                           category=RuntimeWarning)
             bg_upsampler = None
-        else:
+        else:   # GPU
             from basicsr.archs.rrdbnet_arch import RRDBNet
             from basicsr.utils.realesrgan_utils import RealESRGANer
 
@@ -62,13 +63,15 @@ if __name__ == '__main__':
                 tile=args.bg_tile,
                 tile_pad=40,
                 pre_pad=0,
-                half=True)  # need to set False in CPU mode
+                half=True  # need to set False in CPU mode
+            )
     else:
         bg_upsampler = None
 
     # ------------------ set up CodeFormer restorer -------------------
+    # face restorer
     net = ARCH_REGISTRY.get('CodeFormer')(dim_embd=512, codebook_size=1024, n_head=8, n_layers=9,
-                                          connect_list=['32', '64', '128', '256']).to(device)
+                                          connect_list=['32', '64', '128', '256']).to(device)   # fixme: how it works?
 
     # ckpt_path = 'weights/CodeFormer/codeformer.pth'
     ckpt_path = load_file_from_url(url=pretrain_model_url['restoration'],
@@ -77,7 +80,7 @@ if __name__ == '__main__':
     net.load_state_dict(checkpoint)
     net.eval()
 
-    # ------------------ set up FaceRestoreHelper -------------------
+    # ------------------ set up FaceRestoreHelper -------------------   # fixme: what is FaceRestoreHelper?
     # large det_model: 'YOLOv5l', 'retinaface_resnet50'
     # small det_model: 'YOLOv5n', 'retinaface_mobile0.25'
     if not args.has_aligned:
@@ -89,7 +92,8 @@ if __name__ == '__main__':
         det_model=args.detection_model,
         save_ext='png',
         use_parse=True,
-        device=device)
+        device=device
+    )
 
     # -------------------- start to processing ---------------------
     # scan all the jpg and png images
@@ -97,16 +101,17 @@ if __name__ == '__main__':
         # clean all the intermediate results to process the next image
         face_helper.clean_all()
 
+        # load image by opencv
         img_name = os.path.basename(img_path)
         print(f'Processing: {img_name}')
         basename, ext = os.path.splitext(img_name)
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)
 
-        if args.has_aligned:
-            # the input faces are already cropped and aligned
+        if args.has_aligned:    #
+            # the input faces are already **cropped** and aligned
             img = cv2.resize(img, (512, 512), interpolation=cv2.INTER_LINEAR)
             face_helper.cropped_faces = [img]
-        else:
+        else:   #
             face_helper.read_image(img)
             # get face landmarks for each face
             num_det_faces = face_helper.get_face_landmarks_5(
@@ -132,10 +137,12 @@ if __name__ == '__main__':
                 print(f'\tFailed inference for CodeFormer: {error}')
                 restored_face = tensor2img(cropped_face_t, rgb2bgr=True, min_max=(-1, 1))
 
+            # 经过修复后图片矩阵的数字一定的 float 的。但是需要保存.png，所以图片的数字类型必须变到[0,255]的整数
+            # 调用 `astype('uint8')` 会将小数部分直接截去，0-255之间的整数保留
             restored_face = restored_face.astype('uint8')
-            face_helper.add_restored_face(restored_face)
+            face_helper.add_restored_face(restored_face)    # fixme:
 
-        # paste_back
+        # ----- paste_back -----
         if not args.has_aligned:
             # upsample the background
             if bg_upsampler is not None:
@@ -143,11 +150,11 @@ if __name__ == '__main__':
                 bg_img = bg_upsampler.enhance(img, outscale=args.upscale)[0]
             else:
                 bg_img = None
-            face_helper.get_inverse_affine(None)
+            face_helper.get_inverse_affine(None)    # fixme: what is this?
             # paste each restored face to the input image
             restored_img = face_helper.paste_faces_to_input_image(upsample_img=bg_img, draw_box=args.draw_box)
 
-        # save faces
+        # ----- save faces img -----
         for idx, (cropped_face, restored_face) in enumerate(zip(face_helper.cropped_faces, face_helper.restored_faces)):
             # save cropped face
             if not args.has_aligned:
@@ -161,7 +168,7 @@ if __name__ == '__main__':
             save_restore_path = os.path.join(result_root, 'restored_faces', save_face_name)
             imwrite(restored_face, save_restore_path)
 
-        # save restored img
+        # ----- save restored full img -----
         if not args.has_aligned and restored_img is not None:
             save_restore_path = os.path.join(result_root, 'final_results', f'{basename}.png')
             imwrite(restored_img, save_restore_path)
